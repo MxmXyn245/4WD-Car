@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "F:/Engenering/PlatformIO/4WD car"
+		},
+		{
+			"name": "Radio-Car",
+			"path": "../../Radio-Car"
+		},
+		{
+			"name": "4WD Car",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}
