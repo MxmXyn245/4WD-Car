@@ -1,15 +1,17 @@
 #include <Arduino.h>
+#include "BluetoothSerial.h"
+
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
+#endif
 
 // Pinouts settings
 const int LEFT_BACK_BACKWD_PIN = 4;
 const int LEFT_BACK_FWD_PIN = 16;
-
 const int RIGHT_BACK_BACKWD_PIN = 17;
 const int RIGHT_BACK_FWD_PIN = 18;
-
 const int LEFT_FRONT_BACKWD_PIN = 26;
 const int LEFT_FRONT_FWD_PIN = 25;
-
 const int RIGHT_FRONT_BACKWD_PIN = 33;
 const int RIGHT_FRONT_FWD_PIN = 32;
 
@@ -20,12 +22,11 @@ int finalLeftSpeed = 0;
 int finalRightSpeed = 0;
 const int SPEED_STEP = 5;
 
-// Timer settings
+// Timer setings
 unsigned long lastUpdateTime = 0;
-unsigned long lastScenarioTime = 0;
 const unsigned long UPDATE_INTERVAL = 20;
-const unsigned long UPDATE_SCENARIO_INTERVAL = 5000;
-unsigned int scenarioId = 0;
+
+BluetoothSerial SerialBT;
 
 // Defining functions
 void setMotor(int, int);
@@ -33,6 +34,9 @@ void updateMotorsSmooth(int, int);
 
 void setup()
 {
+  Serial.begin(115200); // Вмикаємо монітор порту для діагностики
+  delay(1000);
+
   pinMode(LEFT_BACK_BACKWD_PIN, OUTPUT);
   pinMode(LEFT_BACK_FWD_PIN, OUTPUT);
 
@@ -44,48 +48,47 @@ void setup()
 
   pinMode(RIGHT_FRONT_BACKWD_PIN, OUTPUT);
   pinMode(RIGHT_FRONT_FWD_PIN, OUTPUT);
+
+  Serial.println("Запуск Bluetooth...");
+
+  // Перевіряємо результат запуску Bluetooth
+  if (!SerialBT.begin("ESP32_Robot_Car"))
+  {
+    Serial.println("❌ КРИТИЧНА ПОМИЛКА: Не вдалося виділити пам'ять під Bluetooth!");
+  }
+  else
+  {
+    Serial.println("🚀 БЛЮТУЗ ЗАПУЩЕНО! Шукай пристрій: ESP32_Robot_Car");
+  }
 }
 
 void loop()
 {
-  switch (scenarioId)
+  if (SerialBT.available())
   {
-  case 0:
-    finalLeftSpeed = 0;
-    finalRightSpeed = 0;
-    break;
+    char input = SerialBT.read();
 
-  case 1:
-    finalLeftSpeed = 255;
-    finalRightSpeed = 255;
-    break;
-
-  case 2:
-    finalLeftSpeed = 128;
-    finalRightSpeed = -128;
-    break;
-
-  case 3:
-    finalLeftSpeed = -128;
-    finalRightSpeed = 128;
-    break;
-
-  default:
-    finalLeftSpeed = 0;
-    finalRightSpeed = 0;
-    break;
+    switch (input)
+    {
+    case 'F':
+      finalLeftSpeed = 255;
+      finalRightSpeed = 255;
+      break;
+    case 'B':
+      finalLeftSpeed = -255;
+      finalRightSpeed = -255;
+      break;
+    case 'S':
+      finalLeftSpeed = 0;
+      finalRightSpeed = 0;
+      break;
+    }
   }
 
   if (millis() - lastUpdateTime >= UPDATE_INTERVAL)
   {
     lastUpdateTime = millis();
     updateMotorsSmooth(finalLeftSpeed, finalRightSpeed);
-  }
-
-  if (millis() - lastScenarioTime >= UPDATE_SCENARIO_INTERVAL)
-  {
-    lastScenarioTime = millis();
-    scenarioId = (scenarioId + 1) % 4;
   }
 }
 
