@@ -82,6 +82,14 @@ void loop()
       finalLeftSpeed = 0;
       finalRightSpeed = 0;
       break;
+    case 'L':
+      finalLeftSpeed = 255;
+      finalRightSpeed = -255;
+      break;
+    case 'R':
+      finalLeftSpeed = -255;
+      finalRightSpeed = 255;
+      break;
     }
   }
 
