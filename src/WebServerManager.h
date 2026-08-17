@@ -9,15 +9,11 @@
 class WebServerManager
 {
 private:
-    AsyncWebServer *server;
-    AsyncWebSocket *ws;
-    Chassis *chassis; // Посилання на шасі для передачі команд
+    AsyncWebServer server;
+    AsyncWebSocket ws;
+    Chassis *chassis;
 
     void handleMessage(void *arg, uint8_t *data, size_t len);
-
-    // Статичний метод для обробки подій бібліотеки
-    static void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
-                        AwsEventType type, void *arg, uint8_t *data, size_t len);
 
 public:
     WebServerManager(Chassis *targetChassis);
