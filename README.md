@@ -127,8 +127,6 @@ Where $V_i$ is the linear velocity of wheel $i$, $R_i$ is its distance to the IC
     
 
 ### Planned Upgrades
-
-- Repair H-Bridge solder joint on the `LF_Bwd` channel (GPIO 26).
     
 - Upgrade from open-loop PWM control to closed-loop velocity PID using wheel encoders.
     
