@@ -1,5 +1,19 @@
 # 4WD ESP32 Robotics Platform (FreeRTOS & ICR Kinematics)
 
+<table border="0">
+  <tr>
+    <td width="33%" align="center">
+      <img src="assets/view_1.jpg" width="100%" alt="Top View">
+    </td>
+    <td width="33%" align="center">
+      <img src="assets/top_view.jpg" width="100%" alt="Power Module">
+    </td>
+    <td width="33%" align="center">
+      <img src="assets/front_view.jpg" width="100%" alt="ICR Motion">
+    </td>
+  </tr>
+</table>
+
 An embedded 4-wheel drive robotic chassis engineered with ESP32, featuring deterministic FreeRTOS task handling, high-power EMI filtering, and custom open-loop kinematics based on the Instantaneous Center of Rotation (ICR).
 
 ## Technical Highlights
@@ -74,7 +88,25 @@ An embedded 4-wheel drive robotic chassis engineered with ESP32, featuring deter
     - `stepTurn = 2` (Controlled cornering)
         
 
-## Kinematics & ICR Control Theory
+## Kinematics & Instantaneous Center of Rotation (ICR)
+
+<table border="0" width="60%" align="center">
+  <tr>
+    <td width="33%" align="center" valign="top">
+      <img src="assets/car_init.gif" width="100%">
+    </td>
+    <td width="33%" align="center" valign="top">
+      <img src="assets/car_riding.gif" width="100%">
+    </td>
+    <td width="33%" align="center" valign="top">
+      <img src="assets/car_turning.gif" width="100%">
+    </td>
+  </tr>
+</table>
+
+In a 4WD skid-steer platform without active wheel steering, traditional tank-turn differential drive causes significant tire scrubbing, mechanical resistance, and current spikes during turns. 
+
+To achieve smooth cornering, the motion control algorithm dynamically models the **Instantaneous Center of Rotation (ICR)** — the theoretical pivot point on the floor plane around which all four wheels describe concentric trajectories.
 
 ```
                    [LF]-----------[RF]
@@ -85,26 +117,44 @@ An embedded 4-wheel drive robotic chassis engineered with ESP32, featuring deter
                     |<-- R_LB ---->|<--- R_RB ----->|
 ```
 
-The platform supports two runtime-selectable drive modes:
+### Theoretical Principle & Speed Scaling
 
-1. **Differential Pivot (`DIFFERENTIAL`):** Tank-style rotation on the spot ($Y=0, X \neq 0$).
-    
-2. **Curve Kinematics (`CURVE`):** Modulates wheel speeds dynamically according to the Instantaneous Center of Rotation (ICR):
-    
+According to rigid body kinematics, the linear velocity $V_i$ of each wheel must be directly proportional to its geometric radius $R_i$ from the ICR:
 
 $$V_i = \omega \cdot R_i$$
 
-Where $V_i$ is the linear velocity of wheel $i$, $R_i$ is its distance to the ICR, and $\omega$ is the angular velocity.
+Where $\omega$ is the chassis angular velocity around the ICR[cite: 1].
+
+To approximate this open-loop geometry, target wheel PWM speeds are calculated by scaling the base directional vectors ($V_{\text{outer}} = Y + |X|$, $V_{\text{inner}} = Y - |X|$) using radius-proportional factors $K_{\text{icr}}$:
+
+$$V_{\text{wheel}} = K_{\text{icr}} \cdot V_{\text{base}}$$
 
 ### Speed Distribution Coefficients
 
-|**Wheel Channel**|**Right Turn (X>0)**|**Left Turn (X<0)**|**Position relative to ICR**|
-|---|---|---|---|
-|**Left Front (LF)**|$100\%$|$(Y+X) \cdot 0.60$|Outer Front (Max Radius)|
-|**Left Back (LB)**|$85\%$|$(Y+X) \cdot 0.30$|Outer Rear|
-|**Right Front (RF)**|$(Y-X) \cdot 0.60$|$100\%$|Inner Front|
-|**Right Back (RB)**|$(Y-X) \cdot 0.30$|$85\%$|Inner Rear (Closest to ICR)|
+| Wheel Channel | Position relative to ICR | Right Turn ($X > 0$) | Left Turn ($X < 0$) |
+| :--- | :--- | :--- | :--- |
+| **Left Front (LF)** | Outer Front (Max Radius $R_{\text{LF}}$) | $1.00 \cdot (Y + X)$ | $0.60 \cdot (Y + X)$ |
+| **Left Back (LB)** | Outer Rear ($R_{\text{LB}}$) | $0.85 \cdot (Y + X)$ | $0.30 \cdot (Y + X)$ |
+| **Right Front (RF)** | Inner Front ($R_{\text{RF}}$) | $0.60 \cdot (Y - X)$ | $1.00 \cdot (Y - X)$ |
+| **Right Back (RB)** | Inner Rear (Closest to ICR $R_{\text{RB}}$) | $0.30 \cdot (Y - X)$ | $0.85 \cdot (Y - X)$ |
 
+```cpp
+// Right turn execution (X > 0): ICR shifts to the right of the rear axis
+if (x > 0) {
+    int outerBase = y + x;
+    int innerBase = y - x;
+
+    targetLF = outerBase;                             // Max radius (1.00)
+    targetLB = static_cast<int>(outerBase * 0.85f);  // Outer rear (0.85)
+    targetRF = static_cast<int>(innerBase * 0.60f);  // Inner front (0.60)
+    targetRB = static_cast<int>(innerBase * 0.30f);  // Min radius / Pivot (0.30)
+}
+```
+
+Engineering Benefits
+- Reduced Tire Scrubbing: Eliminates mechanical friction during turns, protecting 3D-printed/plastic gearboxes.
+- Power Drop Mitigation: Prevents motor stall currents and protects the shared battery rail from brownout resets.
+- Smooth Trajectory Control: Enables fluid transitions from wide arcs at low $X$ inputs to tight pivot turns as $X \to 100\%$
 
 ## Pinout Configuration
 
